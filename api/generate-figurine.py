@@ -4,14 +4,22 @@ import base64
 import io
 import os
 from PIL import Image, ImageDraw, ImageFont
-from rembg import remove, new_session
 import pathlib
 
-# Inizializza sessione rembg con modello leggero silueta (~4MB)
-# Modelli disponibili: u2net, u2netp, u2net_human_seg, silueta, isnet-general-use
-print("[figurine] Inizializzazione modello silueta...")
-REMBG_SESSION = new_session("silueta")
-print("[figurine] Modello silueta caricato!")
+# Prova a importare rembg
+REMBG_AVAILABLE = False
+REMBG_SESSION = None
+REMBG_ERROR = None
+
+try:
+    from rembg import remove, new_session
+    print("[figurine] Inizializzazione modello silueta...")
+    REMBG_SESSION = new_session("silueta")
+    REMBG_AVAILABLE = True
+    print("[figurine] ✅ Modello silueta caricato!")
+except Exception as e:
+    REMBG_ERROR = str(e)
+    print(f"[figurine] ❌ rembg non disponibile: {e}")
 
 # Mapping ruoli
 ROLE_MAP = {
@@ -60,14 +68,17 @@ def genera_figurina(foto_base64: str, dati: dict) -> dict:
         sfondo = Image.open(str(TEMPLATE_PATH)).convert("RGBA")
         W, H = sfondo.size
 
-        # 3. Rimuovi sfondo con rembg (modello silueta)
-        print("[figurine] Rimozione sfondo in corso...")
-        foto_scontornata = remove(foto_bytes, session=REMBG_SESSION)
-        print(f"[figurine] Sfondo rimosso: {len(foto_scontornata)} bytes")
+        # 3. Rimuovi sfondo con rembg (se disponibile)
+        if REMBG_AVAILABLE:
+            print("[figurine] Rimozione sfondo in corso...")
+            foto_scontornata = remove(foto_bytes, session=REMBG_SESSION)
+            print(f"[figurine] ✅ Sfondo rimosso: {len(foto_scontornata)} bytes")
+            giocatore = Image.open(io.BytesIO(foto_scontornata)).convert("RGBA")
+        else:
+            print(f"[figurine] ⚠️ rembg non disponibile ({REMBG_ERROR}), uso foto originale")
+            giocatore = Image.open(io.BytesIO(foto_bytes)).convert("RGBA")
 
-        # 4. Carica immagine scontornata
-        giocatore = Image.open(io.BytesIO(foto_scontornata)).convert("RGBA")
-        print("[figurine] Foto scontornata caricata")
+        print("[figurine] Foto caricata")
 
         # 5. Ridimensionamento e posizionamento
         target_y_start = int(H * 0.15)
