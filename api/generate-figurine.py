@@ -3,23 +3,39 @@ import json
 import base64
 import io
 import os
+import requests
 from PIL import Image, ImageDraw, ImageFont
 import pathlib
 
-# Prova a importare rembg
-REMBG_AVAILABLE = False
-REMBG_SESSION = None
-REMBG_ERROR = None
+# remove.bg API
+REMOVEBG_API_KEY = os.environ.get('REMOVEBG_API_KEY')
+if REMOVEBG_API_KEY:
+    print(f"[figurine] ✅ remove.bg API key configurata")
+else:
+    print("[figurine] ⚠️ REMOVEBG_API_KEY non configurata, scontorno disabilitato")
 
-try:
-    from rembg import remove, new_session
-    print("[figurine] Inizializzazione modello silueta...")
-    REMBG_SESSION = new_session("silueta")
-    REMBG_AVAILABLE = True
-    print("[figurine] ✅ Modello silueta caricato!")
-except Exception as e:
-    REMBG_ERROR = str(e)
-    print(f"[figurine] ❌ rembg non disponibile: {e}")
+
+def remove_background(image_bytes):
+    """Rimuove sfondo usando remove.bg API"""
+    if not REMOVEBG_API_KEY:
+        return None, "API key non configurata"
+
+    try:
+        response = requests.post(
+            'https://api.remove.bg/v1.0/removebg',
+            files={'image_file': image_bytes},
+            data={'size': 'auto'},
+            headers={'X-Api-Key': REMOVEBG_API_KEY},
+            timeout=30
+        )
+
+        if response.status_code == 200:
+            return response.content, None
+        else:
+            error_msg = response.json().get('errors', [{}])[0].get('title', 'Unknown error')
+            return None, f"remove.bg error: {error_msg}"
+    except Exception as e:
+        return None, str(e)
 
 # Mapping ruoli
 ROLE_MAP = {
@@ -68,14 +84,15 @@ def genera_figurina(foto_base64: str, dati: dict) -> dict:
         sfondo = Image.open(str(TEMPLATE_PATH)).convert("RGBA")
         W, H = sfondo.size
 
-        # 3. Rimuovi sfondo con rembg (se disponibile)
-        if REMBG_AVAILABLE:
-            print("[figurine] Rimozione sfondo in corso...")
-            foto_scontornata = remove(foto_bytes, session=REMBG_SESSION)
+        # 3. Rimuovi sfondo con remove.bg API
+        print("[figurine] Rimozione sfondo con remove.bg...")
+        foto_scontornata, bg_error = remove_background(foto_bytes)
+
+        if foto_scontornata:
             print(f"[figurine] ✅ Sfondo rimosso: {len(foto_scontornata)} bytes")
             giocatore = Image.open(io.BytesIO(foto_scontornata)).convert("RGBA")
         else:
-            print(f"[figurine] ⚠️ rembg non disponibile ({REMBG_ERROR}), uso foto originale")
+            print(f"[figurine] ⚠️ Scontorno fallito ({bg_error}), uso foto originale")
             giocatore = Image.open(io.BytesIO(foto_bytes)).convert("RGBA")
 
         print("[figurine] Foto caricata")
