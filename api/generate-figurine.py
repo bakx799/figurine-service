@@ -14,10 +14,12 @@ ROLE_MAP = {
     "N/D": "N/D"
 }
 
-# Path assets (relativo alla root del progetto)
-SCRIPT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-TEMPLATE_PATH = os.path.join(SCRIPT_DIR, "utils", "tamplate.png")
-FONT_PATH = os.path.join(SCRIPT_DIR, "utils", "arialbd.ttf")
+# Path assets - usa path relativo alla working directory di Vercel
+# In Vercel, la working directory è la root del progetto
+import pathlib
+PROJECT_ROOT = pathlib.Path(__file__).parent.parent.resolve()
+TEMPLATE_PATH = PROJECT_ROOT / "utils" / "tamplate.png"
+FONT_PATH = PROJECT_ROOT / "utils" / "arialbd.ttf"
 
 
 def genera_figurina(foto_base64: str, dati: dict) -> dict:
@@ -39,12 +41,17 @@ def genera_figurina(foto_base64: str, dati: dict) -> dict:
             return {"success": False, "error": f"Chiavi mancanti: {chiavi_mancanti}"}
 
         print(f"[figurine] Elaborazione: {dati['nome']} {dati['cognome']}...")
+        print(f"[figurine] PROJECT_ROOT: {PROJECT_ROOT}")
+        print(f"[figurine] TEMPLATE_PATH: {TEMPLATE_PATH}")
+        print(f"[figurine] Template exists: {TEMPLATE_PATH.exists()}")
 
         # 1. Decode base64 -> bytes
         foto_bytes = base64.b64decode(foto_base64)
 
         # 2. Carica template
-        sfondo = Image.open(TEMPLATE_PATH).convert("RGBA")
+        if not TEMPLATE_PATH.exists():
+            return {"success": False, "error": f"Template not found at {TEMPLATE_PATH}"}
+        sfondo = Image.open(str(TEMPLATE_PATH)).convert("RGBA")
         W, H = sfondo.size
 
         # 3. Carica foto (senza rimozione sfondo per ora)
@@ -76,10 +83,10 @@ def genera_figurina(foto_base64: str, dati: dict) -> dict:
         draw = ImageDraw.Draw(canvas)
 
         try:
-            font = ImageFont.truetype(FONT_PATH, 33)
+            font = ImageFont.truetype(str(FONT_PATH), 33)
         except IOError:
             font = ImageFont.load_default()
-            print("[figurine] Font non trovato, uso default")
+            print(f"[figurine] Font non trovato a {FONT_PATH}, uso default")
 
         text_color = (30, 30, 30, 255)
         text_x = int(W * 0.08)
