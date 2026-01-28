@@ -4,7 +4,10 @@ import base64
 import io
 import os
 from PIL import Image, ImageDraw, ImageFont
-from rembg import remove
+from transparent_background import Remover
+
+# Inizializza il remover (usa modello InSPyReNet leggero)
+REMOVER = Remover(mode='fast')
 
 # Mapping ruoli
 ROLE_MAP = {
@@ -48,10 +51,10 @@ def genera_figurina(foto_base64: str, dati: dict) -> dict:
         sfondo = Image.open(TEMPLATE_PATH).convert("RGBA")
         W, H = sfondo.size
 
-        # 3. Rimuovi sfondo con rembg (usa modello default u2net)
+        # 3. Rimuovi sfondo con transparent-background
         print("[figurine] Rimozione sfondo in corso...")
-        foto_scontornata_bytes = remove(foto_bytes)
-        giocatore = Image.open(io.BytesIO(foto_scontornata_bytes)).convert("RGBA")
+        foto_img = Image.open(io.BytesIO(foto_bytes)).convert("RGB")
+        giocatore = REMOVER.process(foto_img, type='rgba')
         print("[figurine] Sfondo rimosso")
 
         # 4. Ridimensionamento e posizionamento
