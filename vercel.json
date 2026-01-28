@@ -1,7 +1,8 @@
 {
   "functions": {
-    "api/generate-figurine.js": {
-      "maxDuration": 60
+    "api/generate-figurine.py": {
+      "maxDuration": 60,
+      "runtime": "python3.11"
     }
   }
 }
