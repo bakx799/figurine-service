@@ -1,0 +1,11 @@
+{
+  "name": "figurine-service",
+  "version": "1.0.0",
+  "description": "Microservizio per generazione figurine calciatori",
+  "type": "module",
+  "dependencies": {
+    "@imgly/background-removal-node": "^1.4.5",
+    "@napi-rs/canvas": "^0.1.88",
+    "sharp": "^0.34.4"
+  }
+}
