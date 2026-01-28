@@ -4,6 +4,14 @@ import base64
 import io
 import os
 from PIL import Image, ImageDraw, ImageFont
+from rembg import remove, new_session
+import pathlib
+
+# Inizializza sessione rembg con modello leggero silueta (~4MB)
+# Modelli disponibili: u2net, u2netp, u2net_human_seg, silueta, isnet-general-use
+print("[figurine] Inizializzazione modello silueta...")
+REMBG_SESSION = new_session("silueta")
+print("[figurine] Modello silueta caricato!")
 
 # Mapping ruoli
 ROLE_MAP = {
@@ -14,9 +22,7 @@ ROLE_MAP = {
     "N/D": "N/D"
 }
 
-# Path assets - usa path relativo alla working directory di Vercel
-# In Vercel, la working directory è la root del progetto
-import pathlib
+# Path assets
 PROJECT_ROOT = pathlib.Path(__file__).parent.parent.resolve()
 TEMPLATE_PATH = PROJECT_ROOT / "utils" / "tamplate.png"
 FONT_PATH = PROJECT_ROOT / "utils" / "arialbd.ttf"
@@ -54,12 +60,16 @@ def genera_figurina(foto_base64: str, dati: dict) -> dict:
         sfondo = Image.open(str(TEMPLATE_PATH)).convert("RGBA")
         W, H = sfondo.size
 
-        # 3. Carica foto (senza rimozione sfondo per ora)
-        print("[figurine] Caricamento foto...")
-        giocatore = Image.open(io.BytesIO(foto_bytes)).convert("RGBA")
-        print("[figurine] Foto caricata")
+        # 3. Rimuovi sfondo con rembg (modello silueta)
+        print("[figurine] Rimozione sfondo in corso...")
+        foto_scontornata = remove(foto_bytes, session=REMBG_SESSION)
+        print(f"[figurine] Sfondo rimosso: {len(foto_scontornata)} bytes")
 
-        # 4. Ridimensionamento e posizionamento
+        # 4. Carica immagine scontornata
+        giocatore = Image.open(io.BytesIO(foto_scontornata)).convert("RGBA")
+        print("[figurine] Foto scontornata caricata")
+
+        # 5. Ridimensionamento e posizionamento
         target_y_start = int(H * 0.15)
         target_y_end = int(H * 0.78)
         target_height = target_y_end - target_y_start
@@ -74,12 +84,12 @@ def genera_figurina(foto_base64: str, dati: dict) -> dict:
         pos_x = center_x - (new_width // 2)
         pos_y = target_y_start + (target_height - new_height)
 
-        # 5. Compositing
+        # 6. Compositing
         canvas = Image.new("RGBA", sfondo.size)
         canvas.paste(sfondo, (0, 0))
         canvas.paste(giocatore, (pos_x, pos_y), mask=giocatore)
 
-        # 6. Testo
+        # 7. Testo
         draw = ImageDraw.Draw(canvas)
 
         try:
@@ -111,7 +121,7 @@ def genera_figurina(foto_base64: str, dati: dict) -> dict:
         draw.text((text_x + offset_x_labels, y_ruolo), ruolo, font=font, fill=text_color)
         draw.text((text_x + offset_x_labels, y_anno), anno, font=font, fill=text_color)
 
-        # 7. Salva come PNG in memoria
+        # 8. Salva come PNG in memoria
         bg = Image.new("RGB", canvas.size, (255, 255, 255))
         bg.paste(canvas, mask=canvas.split()[3])
 
